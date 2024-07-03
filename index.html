@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        #title{
+            font-size: 2em;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        #chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 600px;
+            max-height: 600px;
+            margin: 0 auto;
+            border: 2px solid #333;
+        }
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 7vw;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        @media (min-width: 600px) {
+            .square {
+                font-size: 42px;
+            }
+        }
+        .white {
+            background-color: #f0d9b5;
+        }
+        .black {
+            background-color: #b58863;
+        }
+        .square:hover {
+            background-color: #aaa;
+        }
+        .selected {
+            background-color: #7fc97f !important;
+        }
+        .valid-move {
+            background-color: #7fbf7f !important;
+        }
+        #game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            z-index: 10;
+        }
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px;
+            }
+            #game-over {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">Chess Game</h1>
+        <p>Developed by JP</p>
+        <div id="chessboard"></div>
+    </div>
+    <div id="game-over">Game Over</div>
+
+
+    <script>
+        const board = document.getElementById('chessboard');
+        const gameOver = document.getElementById('game-over');
+        let selectedPiece = null;
+        let currentPlayer = 'white';
+
+        const initialBoard = [
+            ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
+            ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['♙', '♙', '♙', '♙', '♙', '♙', '♙', '♙'],
+            ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
+        ];
+
+        function createBoard() {
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = `square ${(row + col) % 2 === 0 ? 'white' : 'black'}`;
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    square.textContent = initialBoard[row][col];
+                    square.addEventListener('click', handleClick);
+                    board.appendChild(square);
+                }
+            }
+        }
+
+        function handleClick(event) {
+            const square = event.target;
+            const row = parseInt(square.dataset.row);
+            const col = parseInt(square.dataset.col);
+
+            if (selectedPiece) {
+                if (isValidMove(selectedPiece, row, col)) {
+                    movePiece(selectedPiece, row, col);
+                    selectedPiece = null;
+                    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                    clearHighlights();
+                    checkGameOver();
+                } else {
+                    selectedPiece = null;
+                    clearHighlights();
+                }
+            } else {
+                if (square.textContent && isPieceOfCurrentPlayer(square.textContent)) {
+                    selectedPiece = { row, col, piece: square.textContent };
+                    square.classList.add('selected');
+                    highlightValidMoves(row, col);
+                }
+            }
+        }
+
+        function isPieceOfCurrentPlayer(piece) {
+            return (currentPlayer === 'white' && piece.charCodeAt(0) >= 9812 && piece.charCodeAt(0) <= 9817) ||
+                   (currentPlayer === 'black' && piece.charCodeAt(0) >= 9818 && piece.charCodeAt(0) <= 9823);
+        }
+
+        function isValidMove(from, toRow, toCol) {
+            const piece = from.piece;
+            const fromRow = from.row;
+            const fromCol = from.col;
+
+            switch (piece) {
+                case '♙': // White Pawn
+                    return (toRow === fromRow - 1 && toCol === fromCol && !getPieceAt(toRow, toCol)) ||
+                           (toRow === fromRow - 2 && toCol === fromCol && fromRow === 6 && !getPieceAt(toRow + 1, toCol) && !getPieceAt(toRow, toCol)) ||
+                           (toRow === fromRow - 1 && Math.abs(toCol - fromCol) === 1 && isOpponentPiece(toRow, toCol));
+                case '♟': // Black Pawn
+                    return (toRow === fromRow + 1 && toCol === fromCol && !getPieceAt(toRow, toCol)) ||
+                           (toRow === fromRow + 2 && toCol === fromCol && fromRow === 1 && !getPieceAt(toRow - 1, toCol) && !getPieceAt(toRow, toCol)) ||
+                           (toRow === fromRow + 1 && Math.abs(toCol - fromCol) === 1 && isOpponentPiece(toRow, toCol));
+                case '♖':
+                case '♜': // Rook
+                    return (fromRow === toRow || fromCol === toCol) && !isPathBlocked(fromRow, fromCol, toRow, toCol);
+                case '♘':
+                case '♞': // Knight
+                    return (Math.abs(fromRow - toRow) === 2 && Math.abs(fromCol - toCol) === 1) ||
+                           (Math.abs(fromRow - toRow) === 1 && Math.abs(fromCol - toCol) === 2);
+                case '♗':
+                case '♝': // Bishop
+                    return Math.abs(fromRow - toRow) === Math.abs(fromCol - toCol) && !isPathBlocked(fromRow, fromCol, toRow, toCol);
+                case '♕':
+                case '♛': // Queen
+                    return ((fromRow === toRow || fromCol === toCol) || (Math.abs(fromRow - toRow) === Math.abs(fromCol - toCol))) &&
+                           !isPathBlocked(fromRow, fromCol, toRow, toCol);
+                case '♔':
+                case '♚': // King
+                    return Math.abs(fromRow - toRow) <= 1 && Math.abs(fromCol - toCol) <= 1;
+                default:
+                    return false;
+            }
+        }
+
+        function isPathBlocked(fromRow, fromCol, toRow, toCol) {
+            const rowStep = fromRow < toRow ? 1 : fromRow > toRow ? -1 : 0;
+            const colStep = fromCol < toCol ? 1 : fromCol > toCol ? -1 : 0;
+            let currentRow = fromRow + rowStep;
+            let currentCol = fromCol + colStep;
+
+            while (currentRow !== toRow || currentCol !== toCol) {
+                if (getPieceAt(currentRow, currentCol)) {
+                    return true;
+                }
+                currentRow += rowStep;
+                currentCol += colStep;
+            }
+
+            return false;
+        }
+
+        function getPieceAt(row, col) {
+            return document.querySelector(`[data-row="${row}"][data-col="${col}"]`).textContent;
+        }
+
+        function isOpponentPiece(row, col) {
+            const piece = getPieceAt(row, col);
+            return piece && ((currentPlayer === 'white' && piece.charCodeAt(0) >= 9818 && piece.charCodeAt(0) <= 9823) ||
+                             (currentPlayer === 'black' && piece.charCodeAt(0) >= 9812 && piece.charCodeAt(0) <= 9817));
+        }
+
+        function movePiece(from, toRow, toCol) {
+            const fromSquare = document.querySelector(`[data-row="${from.row}"][data-col="${from.col}"]`);
+            const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+            toSquare.textContent = fromSquare.textContent;
+            fromSquare.textContent = '';
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.square').forEach(square => {
+                square.classList.remove('selected', 'valid-move');
+            });
+        }
+
+        function highlightValidMoves(row, col) {
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    if (isValidMove({ row, col, piece: getPieceAt(row, col) }, i, j)) {
+                        document.querySelector(`[data-row="${i}"][data-col="${j}"]`).classList.add('valid-move');
+                    }
+                }
+            }
+        }
+
+        function checkGameOver() {
+            const kings = { white: '♔', black: '♚' };
+            let whiteKingFound = false;
+            let blackKingFound = false;
+
+            document.querySelectorAll('.square').forEach(square => {
+                if (square.textContent === kings.white) whiteKingFound = true;
+                if (square.textContent === kings.black) blackKingFound = true;
+            });
+
+            if (!whiteKingFound || !blackKingFound) {
+                gameOver.style.display = 'flex';
+            }
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
